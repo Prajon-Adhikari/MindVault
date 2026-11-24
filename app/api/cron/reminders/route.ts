@@ -1,31 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
 import { processCronReminders } from "@/lib/cronReminders";
 
-export async function GET(request: NextRequest) {
+async function handleCron(request: NextRequest) {
   try {
-    console.log("I am here");
-    const authHeader = request.headers.get("authorization");
-    const { searchParams } = new URL(request.url);
-    const querySecret = searchParams.get("secret");
-
     const expectedSecret = process.env.CRON_SECRET;
 
-    // Enforce secret check if CRON_SECRET is configured in environment
-    if (expectedSecret) {
-      const isHeaderValid = authHeader === `Bearer ${expectedSecret}`;
-      const isQueryValid = querySecret === expectedSecret;
+    // Never allow cron execution without a configured secret
+    if (!expectedSecret) {
+      console.error("CRON_SECRET is not configured");
 
-      if (!isHeaderValid && !isQueryValid) {
-        return NextResponse.json(
-          { message: "Unauthorized cron request" },
-          { status: 401 },
-        );
-      }
+      return NextResponse.json(
+        { message: "Cron authentication is not configured" },
+        { status: 500 },
+      );
+    }
+
+    const authHeader = request.headers.get("authorization");
+
+    // Require Bearer token authentication
+    if (authHeader !== `Bearer ${expectedSecret}`) {
+      return NextResponse.json(
+        { message: "Unauthorized cron request" },
+        { status: 401 },
+      );
     }
 
     const summary = await processCronReminders();
 
     return NextResponse.json({
+      success: true,
       message: "Cron reminders processed successfully",
       summary,
     });
@@ -34,14 +37,19 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(
       {
+        success: false,
         message: "Cron execution failed",
-        error: error instanceof Error ? error.message : String(error),
+        error: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 },
     );
   }
 }
 
+export async function GET(request: NextRequest) {
+  return handleCron(request);
+}
+
 export async function POST(request: NextRequest) {
-  return GET(request);
+  return handleCron(request);
 }
