@@ -9,13 +9,21 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cloudinary": "^2.11.0",
+    "jose": "^6.2.18",
+    "jsonwebtoken": "^9.0.3",
+    "lucide-react": "^1.79.0",
+    "mongoose": "^9.13.0",
     "next": "16.4.6",
+    "nodemailer": "^10.6.1",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "4.3.3",
     "@types/node": "^20",
+    "@types/nodemailer": "^8.0.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
