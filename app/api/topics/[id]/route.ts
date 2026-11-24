@@ -151,23 +151,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       updates.reminderSentAt = null;
     }
 
-    // Email notification
-    if (body.notifyByEmail !== undefined) {
-      if (typeof body.notifyByEmail !== "boolean") {
-        return NextResponse.json(
-          { message: "Invalid notification preference" },
-          { status: 400 },
-        );
-      }
-
-      updates.notifyByEmail = body.notifyByEmail;
-
-      if (body.notifyByEmail) {
-        updates.reminderSentAt = null;
-      }
-    }
-
-    // Ensure an email reminder has a deadline
     const existingTopic = await Topic.findOne({
       _id: id,
       userId,
@@ -178,23 +161,87 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ message: "Topic not found" }, { status: 404 });
     }
 
-    const finalDeadline =
-      updates.deadline !== undefined
-        ? updates.deadline
-        : existingTopic.deadline;
+    const TIME_REGEX = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
-    const finalNotification =
+    // Reminder time
+    if (body.reminderTime !== undefined) {
+      if (
+        typeof body.reminderTime !== "string" ||
+        (body.reminderTime !== "" && !TIME_REGEX.test(body.reminderTime))
+      ) {
+        return NextResponse.json(
+          { message: "Invalid reminder time. Use HH:mm format." },
+          { status: 400 },
+        );
+      }
+
+      updates.reminderTime = body.reminderTime;
+      updates.reminderLastSentFor = "";
+    }
+
+    // Timezone
+    if (body.timezone !== undefined) {
+      if (
+        typeof body.timezone !== "string" ||
+        !body.timezone.trim() ||
+        body.timezone.length > 100
+      ) {
+        return NextResponse.json(
+          { message: "Invalid timezone" },
+          { status: 400 },
+        );
+      }
+
+      try {
+        new Intl.DateTimeFormat("en-US", {
+          timeZone: body.timezone,
+        });
+      } catch {
+        return NextResponse.json(
+          { message: "Invalid timezone" },
+          { status: 400 },
+        );
+      }
+
+      updates.timezone = body.timezone;
+    }
+
+    // Email notification
+    if (body.notifyByEmail !== undefined) {
+      if (typeof body.notifyByEmail !== "boolean") {
+        return NextResponse.json(
+          { message: "Invalid notification preference" },
+          { status: 400 },
+        );
+      }
+
+      updates.notifyByEmail = body.notifyByEmail;
+    }
+
+    const finalReminderTime =
+      updates.reminderTime !== undefined
+        ? (updates.reminderTime as string)
+        : (existingTopic.reminderTime as string);
+
+    const requestedNotification =
       updates.notifyByEmail !== undefined
-        ? updates.notifyByEmail
-        : existingTopic.notifyByEmail;
+        ? (updates.notifyByEmail as boolean)
+        : (existingTopic.notifyByEmail as boolean);
 
-    if (finalNotification && !finalDeadline) {
+    if (requestedNotification && !finalReminderTime) {
       return NextResponse.json(
-        {
-          message: "Set a deadline before enabling email reminders",
-        },
+        { message: "Please select a daily reminder time first" },
         { status: 400 },
       );
+    }
+
+    updates.notifyByEmail = finalReminderTime ? requestedNotification : false;
+
+    if (
+      updates.reminderTime !== undefined ||
+      updates.notifyByEmail !== undefined
+    ) {
+      updates.reminderLastSentFor = "";
     }
 
     const topic = await Topic.findOneAndUpdate(
