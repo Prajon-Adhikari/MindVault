@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { connection } from "next/server";
 import { processCronReminders } from "@/lib/cronReminders";
 
 export async function GET(request: NextRequest) {
   try {
+    // Ensure this route runs at request time, not during prerendering.
+    await connection();
+
     const expectedSecret = process.env.CRON_SECRET;
 
     if (!expectedSecret) {
@@ -32,6 +36,7 @@ export async function GET(request: NextRequest) {
       {
         success: false,
         message: "Cron execution failed",
+        error: error instanceof Error ? error.message : String(error),
       },
       { status: 500 },
     );
