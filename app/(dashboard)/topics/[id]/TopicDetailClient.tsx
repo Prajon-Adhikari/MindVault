@@ -13,8 +13,14 @@ import {
   Trash2,
   ExternalLink,
   Loader2,
+  Flame,
+  ListTodo,
+  BookOpen,
+  Folder,
 } from "lucide-react";
 import TopicChecklist from "@/components/topics/TopicChecklist";
+import DailyObjectives from "@/components/topics/DailyObjectives";
+import TopicDiary from "@/components/topics/TopicDiary";
 
 type ResourceType = "note" | "link" | "image" | "file" | "video";
 
@@ -47,6 +53,8 @@ const resourceOptions = [
 export default function TopicDetailClient({ topicId }: { topicId: string }) {
   const router = useRouter();
 
+  const [mainTab, setMainTab] = useState<"resources" | "diary">("resources");
+  const [activeRightTab, setActiveRightTab] = useState<"daily" | "checklist">("daily");
   const [topic, setTopic] = useState<Topic | null>(null);
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
@@ -219,7 +227,7 @@ export default function TopicDetailClient({ topicId }: { topicId: string }) {
           <div>
             <button
               onClick={() => router.push("/topics")}
-              className="mb-5 flex items-center gap-2 text-sm text-slate-500 hover:text-slate-900"
+              className="mb-5 flex items-center gap-2 text-sm font-medium text-zinc-500 transition hover:text-zinc-900"
             >
               <ArrowLeft size={16} />
               Back to topics
@@ -228,32 +236,61 @@ export default function TopicDetailClient({ topicId }: { topicId: string }) {
             <div className="flex flex-col items-start gap-5">
               <div>
                 <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-50 text-amber-700">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-black text-amber-400 shadow-xs">
                     <FileText size={24} />
                   </div>
 
-                  <h1 className="text-2xl font-semibold text-slate-900">
+                  <h1 className="text-2xl font-extrabold text-zinc-900">
                     {topic.name}
                   </h1>
                 </div>
 
-                <p className="mt-3 text-sm text-slate-500">
+                <p className="mt-3 text-sm text-zinc-500 font-medium">
                   {topic.description || "Manage your resources in this folder."}
                 </p>
               </div>
 
-              {/* Add resource - positioned on left side */}
-              <button
-                onClick={() => {
-                  resetForm();
-                  setShowModal(true);
-                }}
-                className="flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-700"
-              >
-                <Plus size={18} />
-                Add resource
-              </button>
+              {/* Add resource button (shown when on resources tab) */}
+              {mainTab === "resources" && (
+                <button
+                  onClick={() => {
+                    resetForm();
+                    setShowModal(true);
+                  }}
+                  className="flex items-center justify-center gap-2 rounded-xl bg-black px-5 py-3 text-sm font-semibold text-white shadow-xs transition hover:bg-zinc-800 active:scale-[0.99]"
+                >
+                  <Plus size={18} className="text-amber-400" />
+                  Add resource
+                </button>
+              )}
             </div>
+          </div>
+
+          {/* Main Content Navigation Tabs: Resources vs Daily Diary */}
+          <div className="flex items-center gap-2 border-b border-zinc-200">
+            <button
+              onClick={() => setMainTab("resources")}
+              className={`flex items-center gap-2 border-b-2 py-3 px-4 text-sm font-bold transition ${
+                mainTab === "resources"
+                  ? "border-black text-zinc-900"
+                  : "border-transparent text-zinc-500 hover:text-zinc-800"
+              }`}
+            >
+              <Folder size={18} />
+              <span>Resources ({resources.length})</span>
+            </button>
+
+            <button
+              onClick={() => setMainTab("diary")}
+              className={`flex items-center gap-2 border-b-2 py-3 px-4 text-sm font-bold transition ${
+                mainTab === "diary"
+                  ? "border-amber-600 text-amber-600"
+                  : "border-transparent text-zinc-500 hover:text-zinc-800"
+              }`}
+            >
+              <BookOpen size={18} className="text-amber-600" />
+              <span>Daily Diary</span>
+            </button>
           </div>
 
           {/* Error */}
@@ -263,137 +300,170 @@ export default function TopicDetailClient({ topicId }: { topicId: string }) {
             </p>
           )}
 
-          {/* Resource summary */}
-          <section className="space-y-5">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-4">
-              <div>
-                <h2 className="font-semibold text-slate-900">Your resources</h2>
-                <p className="mt-1 text-xs text-slate-500">
-                  {resources.length} saved{" "}
-                  {resources.length === 1 ? "resource" : "resources"}
-                </p>
+          {/* Tab Content */}
+          {mainTab === "diary" ? (
+            <TopicDiary topicId={topic._id} topicName={topic.name} />
+          ) : (
+            <section className="space-y-5">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+                <div>
+                  <h2 className="font-semibold text-slate-900">Your resources</h2>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {resources.length} saved{" "}
+                    {resources.length === 1 ? "resource" : "resources"}
+                  </p>
+                </div>
               </div>
-            </div>
 
-            {/* Resources */}
-            {resources.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-slate-300 py-20 text-center">
-                <FileText size={38} className="mx-auto text-slate-300" />
+              {/* Resources */}
+              {resources.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-slate-300 py-20 text-center">
+                  <FileText size={38} className="mx-auto text-slate-300" />
 
-                <h3 className="mt-4 font-semibold text-slate-800">
-                  No resources yet
-                </h3>
+                  <h3 className="mt-4 font-semibold text-slate-800">
+                    No resources yet
+                  </h3>
 
-                <p className="mt-2 text-sm text-slate-500">
-                  Save notes, links, images, and files in this folder.
-                </p>
+                  <p className="mt-2 text-sm text-slate-500">
+                    Save notes, links, images, and files in this folder.
+                  </p>
 
-                <button
-                  onClick={() => {
-                    resetForm();
-                    setShowModal(true);
-                  }}
-                  className="mt-5 text-sm font-medium text-slate-900 underline"
-                >
-                  Add your first resource
-                </button>
-              </div>
-            ) : (
-              <div className="grid gap-4 sm:grid-cols-2">
-                {resources.map((resource) => (
-                  <div
-                    key={resource._id}
-                    className="rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-slate-300 hover:shadow-sm"
+                  <button
+                    onClick={() => {
+                      resetForm();
+                      setShowModal(true);
+                    }}
+                    className="mt-5 text-sm font-medium text-slate-900 underline"
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
-                        {getResourceIcon(resource.type)}
+                    Add your first resource
+                  </button>
+                </div>
+              ) : (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {resources.map((resource) => (
+                    <div
+                      key={resource._id}
+                      className="rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-slate-300 hover:shadow-sm"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+                          {getResourceIcon(resource.type)}
+                        </div>
+
+                        <button
+                          onClick={() => deleteResource(resource._id)}
+                          title="Delete resource"
+                          className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                        >
+                          <Trash2 size={16} />
+                        </button>
                       </div>
 
-                      <button
-                        onClick={() => deleteResource(resource._id)}
-                        title="Delete resource"
-                        className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      <h3 className="mt-4 font-semibold text-slate-900">
+                        {resource.title}
+                      </h3>
+
+                      <p className="mt-1 text-xs capitalize text-slate-400">
+                        {resource.type}
+                      </p>
+
+                      {resource.description && (
+                        <p className="mt-3 text-sm text-slate-500">
+                          {resource.description}
+                        </p>
+                      )}
+
+                      {resource.type === "note" && (
+                        <p className="mt-3 line-clamp-4 whitespace-pre-wrap text-sm text-slate-600">
+                          {resource.content}
+                        </p>
+                      )}
+
+                      {resource.type === "image" && resource.fileUrl && (
+                        <a
+                          href={resource.fileUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          <img
+                            src={resource.fileUrl}
+                            alt={resource.title}
+                            className="mt-4 h-40 w-full rounded-xl object-cover"
+                          />
+                        </a>
+                      )}
+
+                      {(resource.type === "file" ||
+                        (resource.type === "video" && resource.fileUrl)) && (
+                        <a
+                          href={resource.fileUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-4 flex items-center gap-2 text-sm font-medium text-slate-700 hover:underline"
+                        >
+                          <File size={16} />
+                          {resource.fileName || "Open file"}
+                          <ExternalLink size={14} />
+                        </a>
+                      )}
+
+                      {(resource.type === "link" ||
+                        (resource.type === "video" && resource.url)) && (
+                        <a
+                          href={resource.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-4 flex items-center gap-2 break-all text-sm font-medium text-blue-600 hover:underline"
+                        >
+                          Open link
+                          <ExternalLink size={14} />
+                        </a>
+                      )}
+
+                      <p className="mt-5 border-t border-slate-100 pt-3 text-xs text-slate-400">
+                        Added {new Date(resource.createdAt).toLocaleDateString()}
+                      </p>
                     </div>
-
-                    <h3 className="mt-4 font-semibold text-slate-900">
-                      {resource.title}
-                    </h3>
-
-                    <p className="mt-1 text-xs capitalize text-slate-400">
-                      {resource.type}
-                    </p>
-
-                    {resource.description && (
-                      <p className="mt-3 text-sm text-slate-500">
-                        {resource.description}
-                      </p>
-                    )}
-
-                    {resource.type === "note" && (
-                      <p className="mt-3 line-clamp-4 whitespace-pre-wrap text-sm text-slate-600">
-                        {resource.content}
-                      </p>
-                    )}
-
-                    {resource.type === "image" && resource.fileUrl && (
-                      <a
-                        href={resource.fileUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        <img
-                          src={resource.fileUrl}
-                          alt={resource.title}
-                          className="mt-4 h-40 w-full rounded-xl object-cover"
-                        />
-                      </a>
-                    )}
-
-                    {(resource.type === "file" ||
-                      (resource.type === "video" && resource.fileUrl)) && (
-                      <a
-                        href={resource.fileUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-4 flex items-center gap-2 text-sm font-medium text-slate-700 hover:underline"
-                      >
-                        <File size={16} />
-                        {resource.fileName || "Open file"}
-                        <ExternalLink size={14} />
-                      </a>
-                    )}
-
-                    {(resource.type === "link" ||
-                      (resource.type === "video" && resource.url)) && (
-                      <a
-                        href={resource.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-4 flex items-center gap-2 break-all text-sm font-medium text-blue-600 hover:underline"
-                      >
-                        Open link
-                        <ExternalLink size={14} />
-                      </a>
-                    )}
-
-                    <p className="mt-5 border-t border-slate-100 pt-3 text-xs text-slate-400">
-                      Added {new Date(resource.createdAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
         </main>
 
-        {/* RIGHT SIDE - Fixed height checklist panel */}
-        <aside className="min-w-0 xl:sticky xl:top-6 xl:h-[calc(100vh-3rem)] xl:self-start">
-          <div className="h-[85%] overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white p-4 shadow-sm [scrollbar-width:thin]">
-            <TopicChecklist topicId={topic._id} />
+        {/* RIGHT SIDE - Daily Objectives & Checklist Panel */}
+        <aside className="min-w-0 xl:sticky xl:top-6 xl:self-start space-y-4">
+          <div className="flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-slate-100/80 p-1.5 shadow-xs">
+            <button
+              onClick={() => setActiveRightTab("daily")}
+              className={`flex-1 rounded-xl py-2.5 px-3 text-xs font-semibold transition flex items-center justify-center gap-2 ${
+                activeRightTab === "daily"
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-500 hover:text-slate-900"
+              }`}
+            >
+              <Flame size={15} className="text-orange-500 fill-orange-500" />
+              Daily Objectives
+            </button>
+            <button
+              onClick={() => setActiveRightTab("checklist")}
+              className={`flex-1 rounded-xl py-2.5 px-3 text-xs font-semibold transition flex items-center justify-center gap-2 ${
+                activeRightTab === "checklist"
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-500 hover:text-slate-900"
+              }`}
+            >
+              <ListTodo size={15} className="text-slate-600" />
+              Checklist
+            </button>
+          </div>
+
+          <div>
+            {activeRightTab === "daily" ? (
+              <DailyObjectives topicId={topic._id} />
+            ) : (
+              <TopicChecklist topicId={topic._id} />
+            )}
           </div>
         </aside>
       </div>

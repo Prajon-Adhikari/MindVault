@@ -18,6 +18,7 @@ import {
   Settings,
   ChevronLeft,
   Plus,
+  X,
 } from "lucide-react";
 
 const navigation = [
@@ -35,7 +36,6 @@ const navigation = [
       { label: "All Topics", href: "/topics", icon: Folder },
     ],
   },
-
   {
     heading: "AI INTELLIGENCE",
     items: [
@@ -68,38 +68,58 @@ const navigation = [
   },
 ];
 
-export default function Sidebar() {
+type Props = {
+  onClose?: () => void;
+};
+
+export default function Sidebar({ onClose }: Props) {
   const pathname = usePathname();
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-40 hidden w-[260px] flex-col border-r border-slate-200 bg-white lg:flex">
+    <aside className="flex h-full w-[260px] flex-col border-r border-zinc-200 bg-white">
       {/* Logo */}
-      <div className="flex h-[76px] items-center justify-between border-b border-slate-100 px-6">
-        <Link href="/dashboard" className="flex items-center gap-3">
-          <div className="rounded-xl bg-indigo-600 p-2 text-white">
-            <BrainCircuit size={23} />
+      <div className="flex h-[76px] items-center justify-between border-b border-zinc-100 px-6">
+        <Link
+          href="/dashboard"
+          onClick={onClose}
+          className="flex items-center gap-3"
+        >
+          <div className="rounded-xl bg-black p-2 text-white shadow-xs">
+            <BrainCircuit size={22} className="text-amber-400" />
           </div>
-          <span className="text-xl font-bold tracking-tight text-slate-900">
-            Mind<span className="text-indigo-600">Vault</span>
+          <span className="text-xl font-extrabold tracking-tight text-zinc-900">
+            Mind<span className="text-amber-600">Vault</span>
           </span>
         </Link>
 
-        <button
-          type="button"
-          aria-label="Collapse sidebar"
-          className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100"
-        >
-          <ChevronLeft size={18} />
-        </button>
+        {onClose ? (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close mobile menu"
+            className="rounded-lg p-2 text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-800 lg:hidden"
+          >
+            <X size={20} />
+          </button>
+        ) : (
+          <button
+            type="button"
+            aria-label="Collapse sidebar"
+            className="hidden rounded-lg p-2 text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-800 lg:block"
+          >
+            <ChevronLeft size={18} />
+          </button>
+        )}
       </div>
 
       {/* Create button */}
       <div className="px-4 pt-6">
         <Link
           href="/dashboard/notes/new"
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
+          onClick={onClose}
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-black px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-800 active:scale-[0.99]"
         >
-          <Plus size={18} />
+          <Plus size={18} className="text-amber-400" />
           Create new
         </Link>
       </div>
@@ -108,7 +128,7 @@ export default function Sidebar() {
       <nav className="flex-1 space-y-7 overflow-y-auto px-4 py-7">
         {navigation.map((group) => (
           <div key={group.heading}>
-            <h3 className="mb-3 px-3 text-[10px] font-bold tracking-[0.13em] text-slate-400">
+            <h3 className="mb-3 px-3 text-[10px] font-bold tracking-[0.15em] text-zinc-400">
               {group.heading}
             </h3>
 
@@ -124,16 +144,21 @@ export default function Sidebar() {
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium transition ${
+                    onClick={onClose}
+                    className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium transition ${
                       isActive
-                        ? "bg-indigo-50 text-indigo-700"
-                        : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                        ? "bg-black text-white shadow-xs"
+                        : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
                     }`}
                   >
-                    <Icon size={18} strokeWidth={isActive ? 2.2 : 1.8} />
+                    <Icon
+                      size={18}
+                      strokeWidth={isActive ? 2.2 : 1.8}
+                      className={isActive ? "text-amber-400" : ""}
+                    />
                     {item.label}
                     {isActive && (
-                      <span className="ml-auto h-1.5 w-1.5 rounded-full bg-indigo-600" />
+                      <span className="ml-auto h-1.5 w-1.5 rounded-full bg-amber-400" />
                     )}
                   </Link>
                 );
@@ -144,17 +169,17 @@ export default function Sidebar() {
       </nav>
 
       {/* Sidebar footer */}
-      <div className="border-t border-slate-100 p-4">
-        <div className="rounded-xl bg-slate-50 p-3">
-          <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-100 text-sm font-bold text-indigo-700">
+      <div className="border-t border-zinc-100 p-4">
+        <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-black text-sm font-bold text-amber-400 shadow-xs">
               MV
             </div>
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-slate-800">
+              <p className="truncate text-sm font-semibold text-zinc-900">
                 Personal Workspace
               </p>
-              <p className="text-xs text-slate-500">Free plan</p>
+              <p className="text-xs font-medium text-zinc-500">Free plan</p>
             </div>
           </div>
         </div>

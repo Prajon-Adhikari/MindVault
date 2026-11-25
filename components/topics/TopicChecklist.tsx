@@ -291,12 +291,12 @@ export default function TopicChecklist({ topicId }: Props) {
         <button
           type="submit"
           disabled={adding || !newTask.trim()}
-          className="flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex items-center justify-center gap-2 rounded-xl bg-black px-4 py-3 text-sm font-semibold text-white shadow-xs transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {adding ? (
-            <Loader2 size={17} className="animate-spin" />
+            <Loader2 size={17} className="animate-spin text-amber-400" />
           ) : (
-            <Plus size={17} />
+            <Plus size={17} className="text-amber-400" />
           )}
 
           <span className="hidden sm:inline">Add task</span>

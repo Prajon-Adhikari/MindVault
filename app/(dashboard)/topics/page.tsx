@@ -16,7 +16,10 @@ import {
   Mail,
   Flag,
   Clock,
+  CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
+import { calculateTopicProgress } from "@/lib/progressHelper";
 
 type Topic = {
   _id: string;
@@ -30,16 +33,19 @@ type Topic = {
   timezone?: string;
   notifyByEmail: boolean;
 
+  totalTasks?: number;
+  completedTasks?: number;
+
   createdAt: string;
 };
 
 const colors = [
-  "#D4A373",
-  "#64748B",
-  "#0D9488",
-  "#6366F1",
-  "#E87979",
-  "#A78BFA",
+  "#09090B", // Onyx Black
+  "#D97706", // Amber
+  "#059669", // Emerald
+  "#4F46E5", // Indigo
+  "#7C3AED", // Violet
+  "#E11D48", // Rose
 ];
 
 export default function TopicsPage() {
@@ -56,7 +62,7 @@ export default function TopicsPage() {
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [color, setColor] = useState("#D4A373");
+  const [color, setColor] = useState("#09090B");
   const [priority, setPriority] = useState<"low" | "medium" | "high">("medium");
   const [deadline, setDeadline] = useState("");
 
@@ -113,18 +119,12 @@ export default function TopicsPage() {
     setEditingId(null);
     setName("");
     setDescription("");
-    setColor("#D4A373");
+    setColor("#09090B");
     setPriority("medium");
     setDeadline("");
     setReminderTime("");
     setNotifyByEmail(false);
     setError("");
-  }
-
-  // Open create modal
-  function openCreateModal() {
-    resetForm();
-    setShowModal(true);
   }
 
   // Open edit modal
@@ -133,7 +133,7 @@ export default function TopicsPage() {
 
     setName(topic.name);
     setDescription(topic.description || "");
-    setColor(topic.color || "#D4A373");
+    setColor(topic.color || "#09090B");
     setPriority(topic.priority || "medium");
 
     setDeadline(formatDateTimeLocal(topic.deadline));
@@ -147,8 +147,13 @@ export default function TopicsPage() {
     setShowModal(true);
   }
 
-  // Create or update topic
+  // Open create modal
+  function openCreateModal() {
+    resetForm();
+    setShowModal(true);
+  }
 
+  // Create or update topic
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
@@ -174,7 +179,7 @@ export default function TopicsPage() {
         color,
         priority,
 
-        // Deadline is independent of daily reminders
+        // Deadline
         deadline: deadline ? new Date(deadline).toISOString() : null,
 
         // Daily reminder settings
@@ -203,7 +208,7 @@ export default function TopicsPage() {
       if (isEditing) {
         setTopics((previous) =>
           previous.map((topic) =>
-            topic._id === editingId ? data.topic : topic,
+            topic._id === editingId ? { ...topic, ...data.topic } : topic,
           ),
         );
       } else {
@@ -212,6 +217,7 @@ export default function TopicsPage() {
 
       setShowModal(false);
       resetForm();
+      fetchTopics();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -219,10 +225,10 @@ export default function TopicsPage() {
     }
   }
 
-  // Archive topic
+  // Delete topic
   async function handleDelete(id: string) {
     const confirmed = window.confirm(
-      "Are you sure you want to archive this topic? Its resources will be preserved.",
+      "Are you sure you want to delete this topic?",
     );
 
     if (!confirmed) return;
@@ -235,18 +241,19 @@ export default function TopicsPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || "Failed to archive topic");
+        throw new Error(data.message || "Could not delete topic");
       }
 
       setTopics((previous) => previous.filter((topic) => topic._id !== id));
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Something went wrong");
+      setError(err instanceof Error ? err.message : "Could not delete topic");
     }
   }
 
-  // Search topics
   const filteredTopics = topics.filter((topic) => {
-    const query = search.toLowerCase();
+    const query = search.toLowerCase().trim();
+
+    if (!query) return true;
 
     return (
       topic.name.toLowerCase().includes(query) ||
@@ -254,25 +261,17 @@ export default function TopicsPage() {
     );
   });
 
-  // Priority badge styling
-  function getPriorityStyle(value: Topic["priority"]) {
+  function getPriorityStyle(value: string) {
     switch (value) {
       case "high":
-        return "bg-red-50 text-red-700";
+        return "bg-rose-50 text-rose-700 border border-rose-200";
       case "medium":
-        return "bg-amber-50 text-amber-700";
+        return "bg-amber-50 text-amber-800 border border-amber-200";
       case "low":
-        return "bg-green-50 text-green-700";
+        return "bg-emerald-50 text-emerald-700 border border-emerald-200";
       default:
-        return "bg-slate-100 text-slate-600";
+        return "bg-zinc-100 text-zinc-600";
     }
-  }
-
-  function getDeadlineStatus(value: string) {
-    const dueDate = new Date(value);
-    const now = new Date();
-
-    return dueDate.getTime() < now.getTime();
   }
 
   return (
@@ -280,94 +279,96 @@ export default function TopicsPage() {
       {/* Page header */}
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">My Topics</h1>
+          <h1 className="text-2xl font-extrabold tracking-tight text-zinc-900 sm:text-3xl">
+            My Topics
+          </h1>
 
-          <p className="mt-1 text-sm text-slate-500">
-            Organize your knowledge, resources, and deadlines.
+          <p className="mt-1 text-sm text-zinc-500 font-medium">
+            Organize your knowledge, resources, daily objectives, and deadlines.
           </p>
         </div>
 
         <button
           onClick={openCreateModal}
-          className="flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-700"
+          className="flex items-center justify-center gap-2 rounded-xl bg-black px-5 py-3 text-sm font-semibold text-white shadow-xs transition hover:bg-zinc-800 active:scale-[0.99]"
         >
-          <Plus size={18} />
+          <Plus size={18} className="text-amber-400" />
           Create Topic
         </button>
       </div>
 
-      {/* Statistics */}
+      {/* Statistics Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-slate-500">Total Topics</p>
-            <Folder size={19} className="text-slate-400" />
+            <p className="text-sm font-medium text-zinc-500">Total Topics</p>
+            <Folder size={19} className="text-zinc-400" />
           </div>
 
-          <h2 className="mt-3 text-3xl font-semibold text-slate-900">
+          <h2 className="mt-3 text-3xl font-extrabold text-zinc-900">
             {topics.length}
           </h2>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-5">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-slate-500">High Priority</p>
-            <Flag size={19} className="text-red-500" />
+            <p className="text-sm font-medium text-zinc-500">High Priority</p>
+            <Flag size={19} className="text-rose-500" />
           </div>
 
-          <h2 className="mt-3 text-3xl font-semibold text-slate-900">
+          <h2 className="mt-3 text-3xl font-extrabold text-zinc-900">
             {topics.filter((topic) => topic.priority === "high").length}
           </h2>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-5">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-slate-500">With Deadlines</p>
-            <CalendarDays size={19} className="text-slate-400" />
+            <p className="text-sm font-medium text-zinc-500">With Deadlines</p>
+            <CalendarDays size={19} className="text-zinc-400" />
           </div>
 
-          <h2 className="mt-3 text-3xl font-semibold text-slate-900">
+          <h2 className="mt-3 text-3xl font-extrabold text-zinc-900">
             {topics.filter((topic) => topic.deadline).length}
           </h2>
         </div>
       </div>
 
       {/* Search */}
-      <div className="relative max-w-md">
+      <div className="relative max-w-md w-full">
         <Search
           size={18}
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+          className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400"
         />
 
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search topics..."
-          className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-10 pr-4 text-sm outline-none transition focus:border-slate-400"
+          className="w-full rounded-xl border border-zinc-200 bg-white py-3 pl-10 pr-4 text-sm outline-none transition focus:border-zinc-800"
         />
       </div>
 
       {/* Error */}
       {error && !showModal && (
-        <div className="rounded-xl bg-red-50 p-4 text-sm text-red-600">
+        <div className="rounded-xl bg-red-50 p-4 text-sm text-red-600 border border-red-200">
           {error}
         </div>
       )}
 
-      {/* Topics */}
+      {/* Topics Grid */}
       {loading ? (
         <div className="flex justify-center py-24">
-          <Loader2 className="animate-spin text-slate-400" size={28} />
+          <Loader2 className="animate-spin text-zinc-400" size={28} />
         </div>
       ) : filteredTopics.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-white py-20 text-center">
-          <Folder size={42} className="mx-auto text-slate-300" />
+        <div className="rounded-2xl border border-dashed border-zinc-300 bg-white py-20 text-center shadow-xs">
+          <Folder size={42} className="mx-auto text-zinc-300" />
 
-          <h3 className="mt-4 font-semibold text-slate-800">
+          <h3 className="mt-4 font-bold text-zinc-800 text-lg">
             {search ? "No topics found" : "No topics created yet"}
           </h3>
 
-          <p className="mt-2 text-sm text-slate-500">
+          <p className="mt-2 text-sm text-zinc-500 max-w-sm mx-auto">
             {search
               ? "Try a different search keyword."
               : "Create your first topic to start organizing your knowledge."}
@@ -376,7 +377,7 @@ export default function TopicsPage() {
           {!search && (
             <button
               onClick={openCreateModal}
-              className="mt-5 rounded-xl bg-slate-900 px-5 py-3 text-sm text-white hover:bg-slate-700"
+              className="mt-5 rounded-xl bg-black px-5 py-3 text-sm font-semibold text-white hover:bg-zinc-800 shadow-xs"
             >
               Create your first topic
             </button>
@@ -384,128 +385,170 @@ export default function TopicsPage() {
         </div>
       ) : (
         <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-          {filteredTopics.map((topic) => (
-            <div
-              key={topic._id}
-              className="group rounded-2xl border border-slate-200 bg-white p-5 transition hover:-translate-y-1 hover:border-slate-300 hover:shadow-lg"
-            >
-              {/* Card header */}
-              <div className="flex items-start justify-between">
-                <div
-                  className="flex h-12 w-12 items-center justify-center rounded-xl"
-                  style={{
-                    backgroundColor: `${topic.color}20`,
-                    color: topic.color,
-                  }}
-                >
-                  <Folder size={25} />
+          {filteredTopics.map((topic) => {
+            const progressInfo = calculateTopicProgress(
+              topic.createdAt,
+              topic.deadline,
+              topic.totalTasks || 0,
+              topic.completedTasks || 0,
+            );
+
+            return (
+              <div
+                key={topic._id}
+                className="group flex flex-col justify-between rounded-2xl border border-zinc-200 bg-white p-5 transition hover:-translate-y-1 hover:border-zinc-300 hover:shadow-md"
+              >
+                <div>
+                  {/* Card header */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div
+                      className="flex h-12 w-12 items-center justify-center rounded-2xl shadow-xs"
+                      style={{
+                        backgroundColor: topic.color || "#09090B",
+                        color: "#FFFFFF",
+                      }}
+                    >
+                      <Folder size={24} />
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => openEditModal(topic)}
+                        title="Edit topic"
+                        className="rounded-lg p-2 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900 transition"
+                      >
+                        <Pencil size={16} />
+                      </button>
+
+                      <button
+                        onClick={() => handleDelete(topic._id)}
+                        title="Archive topic"
+                        className="rounded-lg p-2 text-zinc-400 hover:bg-red-50 hover:text-red-600 transition"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Topic details */}
+                  <h3 className="mt-4 text-base font-bold text-zinc-900 leading-snug">
+                    {topic.name}
+                  </h3>
+
+                  <p className="mt-2 min-h-10 text-sm leading-relaxed text-zinc-500">
+                    {topic.description || "No description provided."}
+                  </p>
+
+                  {/* Priority and Daily reminder badges */}
+                  <div className="mt-4 flex flex-wrap items-center gap-2">
+                    <span
+                      className={`rounded-full px-3 py-0.5 text-xs font-semibold capitalize ${getPriorityStyle(
+                        topic.priority || "medium",
+                      )}`}
+                    >
+                      {topic.priority || "medium"} priority
+                    </span>
+
+                    {topic.notifyByEmail && topic.reminderTime && (
+                      <span className="flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
+                        <Mail size={12} />
+                        Daily {topic.reminderTime}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => openEditModal(topic)}
-                    title="Edit topic"
-                    className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-900"
-                  >
-                    <Pencil size={16} />
-                  </button>
+                {/* Progress Bar & Status Section */}
+                <div className="mt-6 space-y-2 border-t border-zinc-100 pt-4">
+                  <div className="flex items-center justify-between text-xs font-semibold">
+                    <span className="text-zinc-600">Overall Progress</span>
+                    <span className="text-zinc-900 font-extrabold">{progressInfo.progress}%</span>
+                  </div>
 
-                  <button
-                    onClick={() => handleDelete(topic._id)}
-                    title="Archive topic"
-                    className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600"
-                  >
-                    <Trash2 size={16} />
-                  </button>
+                  {/* Visual Progress Bar */}
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-100">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${
+                        progressInfo.progress === 100
+                          ? "bg-emerald-500"
+                          : progressInfo.isOverdue
+                          ? "bg-rose-500"
+                          : "bg-black"
+                      }`}
+                      style={{ width: `${progressInfo.progress}%` }}
+                    />
+                  </div>
+
+                  {/* Details row: Tasks completed & Deadline Status */}
+                  <div className="flex items-center justify-between text-[11px] font-medium text-zinc-500 pt-1">
+                    <span>
+                      {progressInfo.totalTasks > 0
+                        ? `${progressInfo.completedTasks}/${progressInfo.totalTasks} tasks done`
+                        : "No tasks yet"}
+                    </span>
+
+                    {topic.deadline ? (
+                      <span
+                        className={`flex items-center gap-1 font-semibold ${
+                          progressInfo.isOverdue
+                            ? "text-rose-600"
+                            : progressInfo.progress === 100
+                            ? "text-emerald-600"
+                            : "text-zinc-700"
+                        }`}
+                      >
+                        {progressInfo.isOverdue ? (
+                          <AlertCircle size={12} />
+                        ) : progressInfo.progress === 100 ? (
+                          <CheckCircle2 size={12} />
+                        ) : (
+                          <Clock size={12} />
+                        )}
+                        {progressInfo.statusText}
+                      </span>
+                    ) : (
+                      <span className="text-zinc-400">No deadline set</span>
+                    )}
+                  </div>
+
+                  {/* Card Footer Link */}
+                  <div className="mt-3 flex items-center justify-between pt-3 border-t border-zinc-50">
+                    <span className="text-[11px] text-zinc-400 font-medium">
+                      Created {new Date(topic.createdAt).toLocaleDateString()}
+                    </span>
+
+                    <Link
+                      href={`/topics/${topic._id}`}
+                      className="flex items-center gap-1 text-xs font-bold text-zinc-900 hover:text-amber-600 transition"
+                    >
+                      Open topic
+                      <ArrowUpRight size={14} />
+                    </Link>
+                  </div>
                 </div>
               </div>
-
-              {/* Topic details */}
-              <h3 className="mt-5 font-semibold text-slate-900">
-                {topic.name}
-              </h3>
-
-              <p className="mt-2 min-h-10 text-sm leading-5 text-slate-500">
-                {topic.description || "No description provided."}
-              </p>
-
-              {/* Priority and deadline */}
-              <div className="mt-4 flex flex-wrap items-center gap-2">
-                <span
-                  className={`rounded-full px-3 py-1 text-xs font-medium ${getPriorityStyle(
-                    topic.priority || "medium",
-                  )}`}
-                >
-                  {topic.priority || "medium"} priority
-                </span>
-
-                {topic.notifyByEmail && topic.reminderTime && (
-                  <span className="flex items-center gap-1 rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
-                    <Mail size={12} />
-                    Daily at {topic.reminderTime}
-                  </span>
-                )}
-              </div>
-
-              {topic.deadline && (
-                <div
-                  className={`mt-3 flex items-center gap-2 text-xs ${
-                    getDeadlineStatus(topic.deadline)
-                      ? "text-red-600"
-                      : "text-slate-500"
-                  }`}
-                >
-                  {getDeadlineStatus(topic.deadline) ? (
-                    <Clock size={14} />
-                  ) : (
-                    <CalendarDays size={14} />
-                  )}
-
-                  <span>
-                    {getDeadlineStatus(topic.deadline)
-                      ? "Deadline passed: "
-                      : "Due: "}
-                    {new Date(topic.deadline).toLocaleString()}
-                  </span>
-                </div>
-              )}
-
-              {/* Footer */}
-              <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-4">
-                <span className="text-xs text-slate-400">
-                  {new Date(topic.createdAt).toLocaleDateString()}
-                </span>
-
-                <Link
-                  href={`/topics/${topic._id}`}
-                  className="flex items-center gap-1 text-sm font-medium text-slate-700 hover:text-slate-950"
-                >
-                  Open folder
-                  <ArrowUpRight size={15} />
-                </Link>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
       {/* Create / Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/40 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-xs">
           <form
             onSubmit={handleSubmit}
-            className="my-auto w-full max-w-lg space-y-5 rounded-2xl bg-white p-6 shadow-xl"
+            className="my-auto w-full max-w-lg space-y-5 rounded-2xl bg-white p-5 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
           >
-            <div className="flex items-start justify-between">
+            <div className="flex items-start justify-between border-b border-zinc-100 pb-4">
               <div>
-                <h2 className="text-xl font-semibold text-slate-900">
+                <h2 className="text-xl font-bold text-zinc-900">
                   {editingId ? "Edit Topic" : "Create New Topic"}
                 </h2>
 
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-1 text-xs text-zinc-500 font-medium">
                   {editingId
-                    ? "Update your topic information and settings."
-                    : "Create a topic and organize your work."}
+                    ? "Update your topic information and deadline settings."
+                    : "Create a topic to organize your resources, tasks, and notes."}
                 </p>
               </div>
 
@@ -515,7 +558,7 @@ export default function TopicsPage() {
                   setShowModal(false);
                   resetForm();
                 }}
-                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"
+                className="rounded-lg p-2 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-800 transition"
               >
                 <X size={18} />
               </button>
@@ -523,7 +566,7 @@ export default function TopicsPage() {
 
             {/* Name */}
             <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">
+              <label className="mb-2 block text-sm font-medium text-zinc-700">
                 Topic name
               </label>
 
@@ -533,13 +576,13 @@ export default function TopicsPage() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. Machine Learning"
-                className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-slate-500"
+                className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm outline-none transition focus:border-zinc-800"
               />
             </div>
 
             {/* Description */}
             <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">
+              <label className="mb-2 block text-sm font-medium text-zinc-700">
                 Description
               </label>
 
@@ -549,13 +592,13 @@ export default function TopicsPage() {
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Describe what you will save in this topic..."
-                className="w-full resize-none rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-slate-500"
+                className="w-full resize-none rounded-xl border border-zinc-200 px-4 py-3 text-sm outline-none transition focus:border-zinc-800"
               />
             </div>
 
             {/* Priority */}
             <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">
+              <label className="mb-2 block text-sm font-medium text-zinc-700">
                 Priority
               </label>
 
@@ -564,7 +607,7 @@ export default function TopicsPage() {
                 onChange={(e) =>
                   setPriority(e.target.value as "low" | "medium" | "high")
                 }
-                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-slate-500"
+                className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-zinc-800"
               >
                 <option value="low">Low Priority</option>
                 <option value="medium">Medium Priority</option>
@@ -574,7 +617,7 @@ export default function TopicsPage() {
 
             {/* Deadline */}
             <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">
+              <label className="mb-2 block text-sm font-medium text-zinc-700">
                 Topic deadline
               </label>
 
@@ -582,18 +625,18 @@ export default function TopicsPage() {
                 type="datetime-local"
                 value={deadline}
                 onChange={(e) => setDeadline(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-slate-500"
+                className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm outline-none transition focus:border-zinc-800"
               />
 
-              <p className="mt-1 text-xs text-slate-500">
-                Optional. Set a target date for completing this topic.
+              <p className="mt-1 text-xs text-zinc-500">
+                Target deadline for completing this topic.
               </p>
             </div>
 
             {/* Daily reminder */}
-            <div className="space-y-3 rounded-xl border border-slate-200 p-4">
+            <div className="space-y-3 rounded-xl border border-zinc-200 p-4 bg-zinc-50/50">
               <div>
-                <label className="mb-2 flex items-center gap-2 text-sm font-medium text-slate-700">
+                <label className="mb-2 flex items-center gap-2 text-sm font-medium text-zinc-700">
                   <Clock size={16} />
                   Daily practice reminder
                 </label>
@@ -608,12 +651,11 @@ export default function TopicsPage() {
                       setNotifyByEmail(false);
                     }
                   }}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-slate-500"
+                  className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-zinc-800"
                 />
 
-                <p className="mt-1 text-xs text-slate-500">
-                  Choose the time when you want to be reminded to practice every
-                  day.
+                <p className="mt-1 text-xs text-zinc-500">
+                  Choose the time when you want to be reminded every day.
                 </p>
               </div>
 
@@ -621,8 +663,8 @@ export default function TopicsPage() {
               <label
                 className={`flex items-start gap-3 rounded-xl border p-3 transition ${
                   reminderTime
-                    ? "cursor-pointer border-slate-200 hover:bg-slate-50"
-                    : "cursor-not-allowed border-slate-100 bg-slate-50"
+                    ? "cursor-pointer border-zinc-200 bg-white hover:bg-zinc-50"
+                    : "cursor-not-allowed border-zinc-100 bg-zinc-100/50"
                 }`}
               >
                 <input
@@ -630,16 +672,16 @@ export default function TopicsPage() {
                   checked={notifyByEmail}
                   disabled={!reminderTime}
                   onChange={(e) => setNotifyByEmail(e.target.checked)}
-                  className="mt-1 h-4 w-4 accent-slate-900"
+                  className="mt-1 h-4 w-4 accent-black"
                 />
 
                 <span>
-                  <span className="flex items-center gap-2 text-sm font-medium text-slate-800">
+                  <span className="flex items-center gap-2 text-sm font-medium text-zinc-800">
                     <Mail size={16} />
                     Send daily email reminder
                   </span>
 
-                  <span className="mt-1 block text-xs text-slate-500">
+                  <span className="mt-1 block text-xs text-zinc-500">
                     Receive an email at your selected time every day.
                     {!reminderTime &&
                       " Select a reminder time to enable this option."}
@@ -648,67 +690,58 @@ export default function TopicsPage() {
               </label>
 
               {reminderTime && notifyByEmail && (
-                <p className="flex items-center gap-2 text-xs text-green-700">
+                <p className="flex items-center gap-2 text-xs font-semibold text-emerald-700">
                   <Clock size={14} />
                   Daily email reminder enabled for {reminderTime}
                 </p>
               )}
 
-              <p className="text-xs text-slate-400">Timezone: {timezone}</p>
+              <p className="text-xs text-zinc-400">Timezone: {timezone}</p>
             </div>
 
             {/* Colors */}
             <div>
-              <label className="mb-3 block text-sm font-medium text-slate-700">
-                Folder color
+              <label className="mb-2 block text-sm font-medium text-zinc-700">
+                Folder accent color
               </label>
 
-              <div className="flex items-center gap-3">
-                {colors.map((item) => (
+              <div className="flex flex-wrap gap-3">
+                {colors.map((c) => (
                   <button
-                    key={item}
                     type="button"
-                    onClick={() => setColor(item)}
-                    style={{ backgroundColor: item }}
-                    className={`h-8 w-8 rounded-full transition ${
-                      color === item
-                        ? "ring-2 ring-slate-900 ring-offset-2"
-                        : ""
+                    key={c}
+                    onClick={() => setColor(c)}
+                    className={`h-8 w-8 rounded-full border-2 transition ${
+                      color === c
+                        ? "border-zinc-900 scale-110 ring-2 ring-offset-2 ring-zinc-400"
+                        : "border-transparent opacity-80 hover:opacity-100"
                     }`}
-                    aria-label={`Select color ${item}`}
+                    style={{ backgroundColor: c }}
                   />
                 ))}
               </div>
             </div>
 
-            {/* Error */}
-            {error && (
-              <p className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
-                {error}
-              </p>
-            )}
+            {error && <p className="text-sm text-rose-600">{error}</p>}
 
-            {/* Actions */}
-            <div className="flex justify-end gap-3 pt-2">
+            <div className="flex justify-end gap-3 border-t border-zinc-100 pt-4">
               <button
                 type="button"
                 onClick={() => {
                   setShowModal(false);
                   resetForm();
                 }}
-                className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-600 hover:bg-slate-50"
+                className="rounded-xl border border-zinc-200 px-4 py-2.5 text-sm font-medium text-zinc-600 transition hover:bg-zinc-100"
               >
                 Cancel
               </button>
 
               <button
-                type="submit"
                 disabled={saving}
-                className="flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50"
+                className="flex items-center gap-2 rounded-xl bg-black px-5 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-zinc-800 disabled:opacity-50"
               >
-                {saving && <Loader2 size={16} className="animate-spin" />}
-
-                {editingId ? "Save Changes" : "Create Topic"}
+                {saving && <Loader2 size={15} className="animate-spin text-amber-400" />}
+                {editingId ? "Update Topic" : "Create Topic"}
               </button>
             </div>
           </form>

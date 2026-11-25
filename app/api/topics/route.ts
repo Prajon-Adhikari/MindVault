@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import mongoose from "mongoose";
 
 import connectDB from "@/lib/mongodb";
 import Topic from "@/models/Topic";
@@ -18,12 +19,55 @@ export async function GET() {
 
     await connectDB();
 
+    const TopicTask = (await import("@/models/TopicTask")).default;
+
     const topics = await Topic.find({
       userId,
       isArchived: false,
     }).sort({ createdAt: -1 });
 
-    return NextResponse.json({ topics });
+    const topicIds = topics.map((t) => t._id);
+
+    const taskCounts = await TopicTask.aggregate([
+      {
+        $match: {
+          topicId: { $in: topicIds },
+          userId: new mongoose.Types.ObjectId(userId),
+        },
+      },
+      {
+        $group: {
+          _id: "$topicId",
+          totalTasks: { $sum: 1 },
+          completedTasks: {
+            $sum: { $cond: [{ $eq: ["$isCompleted", true] }, 1, 0] },
+          },
+        },
+      },
+    ]);
+
+    const taskMap = new Map<string, { totalTasks: number; completedTasks: number }>();
+    for (const item of taskCounts) {
+      taskMap.set(item._id.toString(), {
+        totalTasks: item.totalTasks,
+        completedTasks: item.completedTasks,
+      });
+    }
+
+    const topicsWithProgress = topics.map((t) => {
+      const taskData = taskMap.get(t._id.toString()) || {
+        totalTasks: 0,
+        completedTasks: 0,
+      };
+
+      return {
+        ...t.toObject(),
+        totalTasks: taskData.totalTasks,
+        completedTasks: taskData.completedTasks,
+      };
+    });
+
+    return NextResponse.json({ topics: topicsWithProgress });
   } catch (error) {
     console.error("Get topics error:", error);
 
